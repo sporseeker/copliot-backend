@@ -9,6 +9,8 @@ import com.spotseeker.copliot.model.User;
 import com.spotseeker.copliot.repository.OtpRepository;
 import com.spotseeker.copliot.repository.UserRepository;
 import com.spotseeker.copliot.security.JwtTokenProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,9 +21,12 @@ import java.util.Random;
 @Service
 public class OtpService {
 
+    private static final Logger logger = LoggerFactory.getLogger(OtpService.class);
+
     private final OtpRepository otpRepository;
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final SmsService smsService;
 
     @Value("${otp.expiration}")
     private long otpExpirationMs;
@@ -30,10 +35,11 @@ public class OtpService {
     private int otpLength;
 
     public OtpService(OtpRepository otpRepository, UserRepository userRepository,
-                      JwtTokenProvider jwtTokenProvider) {
+                      JwtTokenProvider jwtTokenProvider, SmsService smsService) {
         this.otpRepository = otpRepository;
         this.userRepository = userRepository;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.smsService = smsService;
     }
 
     @Transactional
@@ -53,8 +59,19 @@ public class OtpService {
 
         otpRepository.save(otp);
 
-        // In production, send OTP via SMS
-        System.out.println("OTP for " + request.getPhoneNumber() + ": " + code);
+        // Send OTP via SMS using send.lk service
+        boolean smsSent = smsService.sendOtpSms(request.getPhoneNumber(), code);
+
+        if (smsSent) {
+            logger.info("OTP sent successfully to {}", request.getPhoneNumber());
+        } else {
+            logger.error("Failed to send OTP to {}", request.getPhoneNumber());
+            // Still allow the process to continue - OTP is saved in DB
+            // In production, you might want to throw an exception here
+        }
+
+        // Log for development/debugging
+        logger.debug("OTP for {}: {}", request.getPhoneNumber(), code);
     }
 
     @Transactional
