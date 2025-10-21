@@ -8,7 +8,9 @@ import com.spotseeker.copliot.exception.BadRequestException;
 import com.spotseeker.copliot.exception.ResourceNotFoundException;
 import com.spotseeker.copliot.exception.UnauthorizedException;
 import com.spotseeker.copliot.model.Partner;
+import com.spotseeker.copliot.model.User;
 import com.spotseeker.copliot.repository.PartnerRepository;
+import com.spotseeker.copliot.repository.UserRepository;
 import com.spotseeker.copliot.security.JwtTokenProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,97 +28,107 @@ import java.util.UUID;
 public class PartnerService {
 
     private final PartnerRepository partnerRepository;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    public PartnerService(PartnerRepository partnerRepository, PasswordEncoder passwordEncoder,
-                          JwtTokenProvider jwtTokenProvider) {
+    public PartnerService(PartnerRepository partnerRepository, UserRepository userRepository,
+                          PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider) {
         this.partnerRepository = partnerRepository;
+        this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
     }
 
     public Partner register(PartnerRegistrationDto dto, MultipartFile logo) {
-        if (partnerRepository.existsByUsername(dto.getUsername())) {
-            throw new BadRequestException("Username already exists");
+        // Check if email already exists
+        if (userRepository.existsByEmail(dto.getEmail())) {
+            throw new BadRequestException("Email already exists");
         }
 
+        // Create user account
+        User user = new User();
+        user.setEmail(dto.getEmail());
+        user.setMobile(dto.getPhoneNumber());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setUserType(User.UserType.PARTNER);
+        user.setStatus(User.UserStatus.PENDING);
+        user.setProfileComplete(false);
+        user = userRepository.save(user);
+
+        // Create partner profile
         Partner partner = new Partner();
-        partner.setUsername(dto.getUsername());
-        partner.setPassword(passwordEncoder.encode(dto.getPassword()));
-        partner.setBusinessName(dto.getBusinessName());
-        partner.setContactPerson(dto.getContactPerson());
-        partner.setPhoneNumber(dto.getPhoneNumber());
-        partner.setEmail(dto.getEmail());
-        partner.setAddress(dto.getAddress());
-        partner.setIsActive(true);
+        partner.setUser(user);
+        partner.setOrganizationName(dto.getBusinessName());
+        partner.setOrganizerName(dto.getContactPerson());
+        partner.setOrganizerMobile(dto.getPhoneNumber());
+        partner.setBusinessEmail(dto.getEmail());
+        partner.setRegisteredAddress(dto.getAddress());
 
         if (logo != null && !logo.isEmpty()) {
             String logoPath = saveFile(logo);
-            partner.setLogoPath(logoPath);
+            partner.setBusinessRegistrationFile(logoPath);
         }
 
         return partnerRepository.save(partner);
     }
 
     public AuthResponseDto login(PartnerLoginDto dto) {
-        Partner partner = partnerRepository.findByUsername(dto.getUsername())
+        // Find user by email (username is now email)
+        User user = userRepository.findByEmail(dto.getUsername())
                 .orElseThrow(() -> new UnauthorizedException("Invalid username or password"));
 
-        if (!passwordEncoder.matches(dto.getPassword(), partner.getPassword())) {
+        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
             throw new UnauthorizedException("Invalid username or password");
         }
 
-        if (!partner.getIsActive()) {
-            throw new UnauthorizedException("Account is not active");
+        if (user.getStatus() == User.UserStatus.SUSPENDED) {
+            throw new UnauthorizedException("Account is suspended");
         }
 
-        String token = jwtTokenProvider.generateToken(partner.getId().toString(), "partner");
+        String token = jwtTokenProvider.generateToken(user.getId(), user.getEmail(), user.getUserType().name());
 
-        // Don't send password in response
-        partner.setPassword(null);
+        // Get partner profile
+        Partner partner = partnerRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Partner profile not found"));
 
-        return new AuthResponseDto(token, partner);
+        return new AuthResponseDto(token, user);
     }
 
-    public Partner getProfile(Long partnerId) {
-        Partner partner = partnerRepository.findById(partnerId)
+    public Partner getProfile(Long userId) {
+        return partnerRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Partner not found"));
-        partner.setPassword(null);
-        return partner;
     }
 
-    public Partner updateProfile(Long partnerId, PartnerUpdateDto dto, MultipartFile logo) {
-        Partner partner = partnerRepository.findById(partnerId)
+    public Partner updateProfile(Long userId, PartnerUpdateDto dto, MultipartFile logo) {
+        Partner partner = partnerRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Partner not found"));
 
         if (dto.getBusinessName() != null) {
-            partner.setBusinessName(dto.getBusinessName());
+            partner.setOrganizationName(dto.getBusinessName());
         }
         if (dto.getContactPerson() != null) {
-            partner.setContactPerson(dto.getContactPerson());
+            partner.setOrganizerName(dto.getContactPerson());
         }
         if (dto.getPhoneNumber() != null) {
-            partner.setPhoneNumber(dto.getPhoneNumber());
+            partner.setOrganizerMobile(dto.getPhoneNumber());
         }
         if (dto.getEmail() != null) {
-            partner.setEmail(dto.getEmail());
+            partner.setBusinessEmail(dto.getEmail());
         }
         if (dto.getAddress() != null) {
-            partner.setAddress(dto.getAddress());
+            partner.setRegisteredAddress(dto.getAddress());
         }
 
         if (logo != null && !logo.isEmpty()) {
             String logoPath = saveFile(logo);
-            partner.setLogoPath(logoPath);
+            partner.setBusinessRegistrationFile(logoPath);
         }
 
-        Partner updatedPartner = partnerRepository.save(partner);
-        updatedPartner.setPassword(null);
-        return updatedPartner;
+        return partnerRepository.save(partner);
     }
 
     private String saveFile(MultipartFile file) {

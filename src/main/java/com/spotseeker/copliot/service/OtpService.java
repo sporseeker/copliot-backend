@@ -84,11 +84,14 @@ public class OtpService {
         otp.setVerified(true);
         otpRepository.save(otp);
 
-        // Get or create user
-        User user = userRepository.findByPhoneNumber(request.getPhoneNumber())
+        // Get or create user - use mobile field
+        User user = userRepository.findByMobile(request.getPhoneNumber())
                 .orElseGet(() -> {
                     User newUser = new User();
-                    newUser.setPhoneNumber(request.getPhoneNumber());
+                    newUser.setMobile(request.getPhoneNumber());
+                    // Set default values for required fields
+                    newUser.setEmail(request.getPhoneNumber() + "@temp.com"); // Temporary email
+                    newUser.setPassword(""); // Will be set later during registration
                     return userRepository.save(newUser);
                 });
 
@@ -110,5 +113,11 @@ public class OtpService {
             code.append(random.nextInt(10));
         }
         return code.toString();
+    }
+
+    public boolean verifyOtpCode(String phoneNumber, String code) {
+        return otpRepository.findByPhoneNumberAndCodeAndVerifiedFalseAndExpiresAtAfter(
+                phoneNumber, code, LocalDateTime.now()
+        ).isPresent();
     }
 }

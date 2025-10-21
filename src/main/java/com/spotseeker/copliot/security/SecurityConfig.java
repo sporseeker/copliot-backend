@@ -32,16 +32,18 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
+                        // Public authentication endpoints
+                        .requestMatchers("/api/auth/register").permitAll()
+                        .requestMatchers("/api/auth/login").permitAll()
+                        .requestMatchers("/api/auth/verify-mobile").permitAll()
+                        .requestMatchers("/api/auth/refresh").permitAll()
                         .requestMatchers("/api/auth/otp/**").permitAll()
                         .requestMatchers("/api/auth/partner/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/partners/register").permitAll()
+                        // Public event validation endpoint (for QR scanning)
+                        .requestMatchers(HttpMethod.POST, "/api/events/*/validate-ticket").permitAll()
+                        // Development endpoints
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        // User endpoints
-                        .requestMatchers("/api/users/**").hasRole("USER")
-                        // Partner endpoints
-                        .requestMatchers("/api/partners/**").hasRole("PARTNER")
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )

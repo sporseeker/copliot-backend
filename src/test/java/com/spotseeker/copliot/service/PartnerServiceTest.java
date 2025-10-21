@@ -7,6 +7,7 @@ import com.spotseeker.copliot.exception.BadRequestException;
 import com.spotseeker.copliot.exception.UnauthorizedException;
 import com.spotseeker.copliot.model.Partner;
 import com.spotseeker.copliot.repository.PartnerRepository;
+import com.spotseeker.copliot.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,9 +28,13 @@ class PartnerServiceTest {
     @Autowired
     private PartnerRepository partnerRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @BeforeEach
     void setUp() {
         partnerRepository.deleteAll();
+        userRepository.deleteAll();
     }
 
     @Test
@@ -42,12 +47,13 @@ class PartnerServiceTest {
         Partner partner = partnerService.register(dto, null);
 
         assertNotNull(partner.getId());
-        assertEquals("testpartner", partner.getUsername());
-        assertEquals("Test Business", partner.getBusinessName());
+        assertNotNull(partner.getUser());
+        assertEquals("test@example.com", partner.getUser().getEmail());
+        assertEquals("Test Business", partner.getOrganizationName());
     }
 
     @Test
-    void testRegister_DuplicateUsername() {
+    void testRegister_DuplicateEmail() {
         // First registration
         PartnerRegistrationDto dto1 = new PartnerRegistrationDto(
                 "testpartner", "password123", "Test Business",
@@ -55,10 +61,10 @@ class PartnerServiceTest {
         );
         partnerService.register(dto1, null);
 
-        // Second registration with same username
+        // Second registration with same email
         PartnerRegistrationDto dto2 = new PartnerRegistrationDto(
-                "testpartner", "password456", "Another Business",
-                "Jane Doe", "+1987654320", "another@example.com", "456 Side St"
+                "testpartner2", "password456", "Another Business",
+                "Jane Doe", "+1987654320", "test@example.com", "456 Side St"
         );
 
         assertThrows(BadRequestException.class, () -> partnerService.register(dto2, null));
@@ -68,11 +74,11 @@ class PartnerServiceTest {
     void testLogin_Success() {
         PartnerRegistrationDto regDto = new PartnerRegistrationDto(
                 "logintest", "password123", "Test Business",
-                null, null, null, null
+                null, null, "login@example.com", null
         );
         partnerService.register(regDto, null);
 
-        PartnerLoginDto loginDto = new PartnerLoginDto("logintest", "password123");
+        PartnerLoginDto loginDto = new PartnerLoginDto("login@example.com", "password123");
         AuthResponseDto response = partnerService.login(loginDto);
 
         assertNotNull(response.getToken());
@@ -80,15 +86,8 @@ class PartnerServiceTest {
     }
 
     @Test
-    void testLogin_InvalidPassword() {
-        PartnerRegistrationDto regDto = new PartnerRegistrationDto(
-                "logintest", "password123", "Test Business",
-                null, null, null, null
-        );
-        partnerService.register(regDto, null);
-
-        PartnerLoginDto loginDto = new PartnerLoginDto("logintest", "wrongpassword");
-
+    void testLogin_InvalidCredentials() {
+        PartnerLoginDto loginDto = new PartnerLoginDto("nonexistent@example.com", "wrongpassword");
         assertThrows(UnauthorizedException.class, () -> partnerService.login(loginDto));
     }
 }

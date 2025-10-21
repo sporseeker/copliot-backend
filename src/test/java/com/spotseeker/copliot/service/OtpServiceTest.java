@@ -52,7 +52,7 @@ class OtpServiceTest {
         AuthResponseDto response = otpService.verifyOtp(verifyRequest);
 
         assertNotNull(response.getToken());
-        assertTrue(userRepository.findByPhoneNumber(phoneNumber).isPresent());
+        assertTrue(userRepository.findByMobile(phoneNumber).isPresent());
     }
 
     @Test

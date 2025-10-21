@@ -1,11 +1,8 @@
 package com.spotseeker.copliot.controller;
 
-import com.spotseeker.copliot.dto.AuthResponseDto;
-import com.spotseeker.copliot.dto.OtpRequestDto;
-import com.spotseeker.copliot.dto.OtpVerifyDto;
-import com.spotseeker.copliot.dto.PartnerLoginDto;
+import com.spotseeker.copliot.dto.*;
+import com.spotseeker.copliot.service.AuthService;
 import com.spotseeker.copliot.service.OtpService;
-import com.spotseeker.copliot.service.PartnerService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,11 +15,35 @@ import java.util.Map;
 public class AuthController {
 
     private final OtpService otpService;
-    private final PartnerService partnerService;
+    private final AuthService authService;
 
-    public AuthController(OtpService otpService, PartnerService partnerService) {
+    public AuthController(OtpService otpService, AuthService authService) {
         this.otpService = otpService;
-        this.partnerService = partnerService;
+        this.authService = authService;
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<LoginResponseDto> register(@Valid @RequestBody RegisterRequestDto request) {
+        LoginResponseDto response = authService.register(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponseDto> login(@Valid @RequestBody LoginRequestDto request) {
+        LoginResponseDto response = authService.login(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-mobile")
+    public ResponseEntity<VerifyMobileResponseDto> verifyMobile(@Valid @RequestBody VerifyMobileDto request) {
+        VerifyMobileResponseDto response = authService.verifyMobile(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<RefreshTokenResponseDto> refreshToken(@Valid @RequestBody RefreshTokenRequestDto request) {
+        RefreshTokenResponseDto response = authService.refreshToken(request);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/otp/request")
@@ -44,12 +65,6 @@ public class AuthController {
         otpService.resendOtp(request);
         Map<String, String> response = new HashMap<>();
         response.put("message", "OTP resent successfully");
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/partner/login")
-    public ResponseEntity<AuthResponseDto> partnerLogin(@Valid @RequestBody PartnerLoginDto request) {
-        AuthResponseDto response = partnerService.login(request);
         return ResponseEntity.ok(response);
     }
 }

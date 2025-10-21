@@ -24,11 +24,14 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        if (dto.getName() != null) {
-            user.setName(dto.getName());
-        }
+        // Update email if provided
         if (dto.getEmail() != null) {
             user.setEmail(dto.getEmail());
+        }
+
+        // Update mobile if name field is actually mobile (legacy compatibility)
+        if (dto.getName() != null) {
+            user.setMobile(dto.getName());
         }
 
         return userRepository.save(user);
