@@ -1,6 +1,5 @@
 package com.spotseeker.copliot.security;
 
-import com.spotseeker.copliot.exception.UnauthorizedException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,14 +32,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 String userId = tokenProvider.getSubjectFromToken(jwt);
-                String userType = tokenProvider.getTypeFromToken(jwt);
+                // Prefer the explicit 'userType' claim; fall back to legacy 'type' claim
+                String userType = tokenProvider.getUserTypeFromToken(jwt);
+                if (userType == null) {
+                    userType = tokenProvider.getTypeFromToken(jwt);
+                }
 
-                SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + userType.toUpperCase());
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userId, null, Collections.singletonList(authority));
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                if (userType != null) {
+                    SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + userType.toUpperCase());
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(userId, null, Collections.singletonList(authority));
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                } else {
+                    // No userType claim found; skip setting authentication to avoid NPE and log a warning.
+                    logger.warn("JWT validated but no user type claim found (neither 'userType' nor 'type') for subject=" + userId);
+                }
             }
         } catch (Exception ex) {
             logger.error("Could not set user authentication in security context", ex);

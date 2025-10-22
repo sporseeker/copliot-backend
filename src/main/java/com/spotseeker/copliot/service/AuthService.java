@@ -128,4 +128,42 @@ public class AuthService {
                 .tempToken(tempToken)
                 .build();
     }
+
+    @Transactional
+    public LoginResponseDto registerAdmin(RegisterRequestDto request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BadCredentialsException("Email already exists");
+        }
+
+        if (userRepository.existsByMobile(request.getMobile())) {
+            throw new BadCredentialsException("Mobile number already exists");
+        }
+
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setMobile(request.getMobile());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setUserType(User.UserType.ADMIN);
+        user.setStatus(User.UserStatus.APPROVED);
+        user.setProfileComplete(true);
+        user.setMobileVerified(true);
+
+        user = userRepository.save(user);
+
+        String accessToken = jwtTokenProvider.generateToken(user.getId(), user.getEmail(), user.getUserType().name());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+
+        return LoginResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken.getToken())
+                .user(LoginResponseDto.UserDto.builder()
+                        .id(user.getId().toString())
+                        .email(user.getEmail())
+                        .mobile(user.getMobile())
+                        .userType(user.getUserType().name().toLowerCase())
+                        .status(user.getStatus().name().toLowerCase())
+                        .profileComplete(user.getProfileComplete())
+                        .build())
+                .build();
+    }
 }

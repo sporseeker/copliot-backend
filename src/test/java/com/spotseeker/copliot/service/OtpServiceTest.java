@@ -29,17 +29,17 @@ class OtpServiceTest {
 
     @Test
     void testRequestOtp_Success() {
-        OtpRequestDto request = new OtpRequestDto("+1234567890");
+        OtpRequestDto request = new OtpRequestDto("+94719000492");
 
         otpService.requestOtp(request);
 
         assertTrue(otpRepository.findAll().stream()
-                .anyMatch(otp -> otp.getPhoneNumber().equals("+1234567890")));
+                .anyMatch(otp -> otp.getPhoneNumber().equals("+94719000492")));
     }
 
     @Test
     void testVerifyOtp_ValidOtp() {
-        String phoneNumber = "+1234567890";
+        String phoneNumber = "+94719000492";
         OtpRequestDto request = new OtpRequestDto(phoneNumber);
         otpService.requestOtp(request);
 
@@ -57,7 +57,7 @@ class OtpServiceTest {
 
     @Test
     void testVerifyOtp_InvalidOtp() {
-        OtpVerifyDto request = new OtpVerifyDto("+1234567890", "999999");
+        OtpVerifyDto request = new OtpVerifyDto("+94719000492", "999999");
 
         assertThrows(BadRequestException.class, () -> otpService.verifyOtp(request));
     }

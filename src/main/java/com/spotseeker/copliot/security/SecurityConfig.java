@@ -39,6 +39,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/refresh").permitAll()
                         .requestMatchers("/api/auth/otp/**").permitAll()
                         .requestMatchers("/api/auth/partner/login").permitAll()
+                        .requestMatchers("/api/auth/partner/register/**").permitAll()
+                        .requestMatchers("/api/auth/admin/register").permitAll()
                         // Public event validation endpoint (for QR scanning)
                         .requestMatchers(HttpMethod.POST, "/api/events/*/validate-ticket").permitAll()
                         // Development endpoints

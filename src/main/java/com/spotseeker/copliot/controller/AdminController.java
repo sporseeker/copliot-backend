@@ -1,15 +1,21 @@
 package com.spotseeker.copliot.controller;
 
+import com.spotseeker.copliot.dto.PartnerApprovalDto;
+import com.spotseeker.copliot.dto.PartnerRegistrationResponseDto;
+import com.spotseeker.copliot.model.PartnerRegistrationRequest;
 import com.spotseeker.copliot.model.User;
 import com.spotseeker.copliot.repository.PartnerRepository;
 import com.spotseeker.copliot.repository.UserRepository;
 import com.spotseeker.copliot.repository.EventRepository;
+import com.spotseeker.copliot.service.PartnerRegistrationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -23,6 +29,7 @@ public class AdminController {
     private final UserRepository userRepository;
     private final PartnerRepository partnerRepository;
     private final EventRepository eventRepository;
+    private final PartnerRegistrationService partnerRegistrationService;
 
     @GetMapping("/partners")
     @PreAuthorize("hasRole('ADMIN')")
@@ -91,5 +98,62 @@ public class AdminController {
 
         return ResponseEntity.ok(response);
     }
-}
 
+    @GetMapping("/partner-requests")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getPartnerRequests(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int limit) {
+
+        Pageable pageable = PageRequest.of(page, limit);
+        Page<PartnerRegistrationRequest> requests;
+
+        if (status != null && status.equals("PENDING_APPROVAL")) {
+            requests = partnerRegistrationService.getPendingRequests(pageable);
+        } else {
+            requests = partnerRegistrationService.getAllRequests(pageable);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("requests", requests.getContent());
+        response.put("total", requests.getTotalElements());
+        response.put("page", page);
+        response.put("limit", limit);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/partner-requests/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<PartnerRegistrationResponseDto> approvePartnerRequest(
+            @Valid @RequestBody PartnerApprovalDto request,
+            Authentication authentication) {
+
+        // Get admin user ID from authentication (subject contains user ID)
+        Long adminId = Long.parseLong(authentication.getName());
+        User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("Admin user not found"));
+
+        PartnerRegistrationResponseDto response;
+
+        if ("approve".equalsIgnoreCase(request.getAction())) {
+            response = partnerRegistrationService.approveRequest(
+                    request.getRequestId(),
+                    admin.getId(),
+                    request.getNotes()
+            );
+        } else if ("reject".equalsIgnoreCase(request.getAction())) {
+            response = partnerRegistrationService.rejectRequest(
+                    request.getRequestId(),
+                    admin.getId(),
+                    request.getRejectionReason(),
+                    request.getNotes()
+            );
+        } else {
+            throw new RuntimeException("Invalid action. Must be 'approve' or 'reject'");
+        }
+
+        return ResponseEntity.ok(response);
+    }
+}
