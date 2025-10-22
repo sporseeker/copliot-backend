@@ -28,7 +28,7 @@ public class TicketPackageListDto {
         private Integer availableCount;
         private String startDateTime;
         private String endDateTime;
-        private String status;
+        private String status; // active, inactive 
     }
 }
 

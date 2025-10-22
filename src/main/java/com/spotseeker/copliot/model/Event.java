@@ -98,7 +98,7 @@ public class Event {
     }
 
     public enum EventCategory {
-        MUSIC, TECHNOLOGY, ART, SPORTS, FOOD, BUSINESS
+        EDM, FAMILY, TAMIL_DJ, HALOWEEN, AIR_EXPERIENCE
     }
 
     public enum EventStatus {

@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 @Service
@@ -36,7 +37,7 @@ public class S3FileService {
                                            FileUpload.FilePurpose purpose, Long userId) {
         try {
             String fileId = UUID.randomUUID().toString();
-            String fileName = generateFileName(file.getOriginalFilename(), fileId);
+            String fileName = generateFilePathWithStructure(file.getOriginalFilename(), fileId, purpose, userId);
 
             if (s3Enabled) {
                 ObjectMetadata metadata = new ObjectMetadata();
@@ -86,7 +87,7 @@ public class S3FileService {
 
         try {
             if (s3Enabled) {
-                String fileName = extractFileNameFromUrl(fileUpload.getUrl());
+                String fileName = extractFilePathFromUrl(fileUpload.getUrl());
                 DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(bucketName, fileName);
                 amazonS3.deleteObject(deleteObjectRequest);
             }
@@ -98,15 +99,62 @@ public class S3FileService {
         }
     }
 
+    /**
+     * Generates file path with proper folder structure:
+     * Format: {purpose}/{year}/{month}/{userId}/{fileId}.{ext}
+     * Example: partners/company-registration/2025/10/123/uuid.pdf
+     */
+    private String generateFilePathWithStructure(String originalFileName, String fileId,
+                                                 FileUpload.FilePurpose purpose, Long userId) {
+        String extension = "";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+        }
+
+        // Get current date for folder structure
+        LocalDateTime now = LocalDateTime.now();
+        String year = now.format(DateTimeFormatter.ofPattern("yyyy"));
+        String month = now.format(DateTimeFormatter.ofPattern("MM"));
+
+        // Build folder path based on purpose
+        String folderPath = getFolderPathByPurpose(purpose);
+
+        // Complete path: folder/year/month/userId/fileId.ext
+        return String.format("%s/%s/%s/%s/%s%s", folderPath, year, month, userId, fileId, extension);
+    }
+
+    /**
+     * Returns the base folder path for each file purpose
+     */
+    private String getFolderPathByPurpose(FileUpload.FilePurpose purpose) {
+        return switch (purpose) {
+            case COMPANY_REGISTRATION -> "partners/company-registration";
+            case ORGANIZER_ID -> "partners/organizer-ids";
+            case AGREEMENT_SIGNATURE -> "partners/agreements";
+            case EVENT_FLYER -> "events/flyers";
+        };
+    }
+
+    /**
+     * Extracts the full file path from S3 URL
+     */
+    private String extractFilePathFromUrl(String url) {
+        // Extract everything after the bucket URL
+        String bucketUrl = String.format("https://%s.s3.%s.amazonaws.com/", bucketName, "ap-south-1");
+        if (url.startsWith(bucketUrl)) {
+            return url.substring(bucketUrl.length());
+        }
+        // Fallback to old method
+        return url.substring(url.lastIndexOf("/") + 1);
+    }
+
+    // Deprecated - keeping for backward compatibility
+    @Deprecated
     private String generateFileName(String originalFileName, String fileId) {
         String extension = "";
         if (originalFileName != null && originalFileName.contains(".")) {
             extension = originalFileName.substring(originalFileName.lastIndexOf("."));
         }
         return fileId + extension;
-    }
-
-    private String extractFileNameFromUrl(String url) {
-        return url.substring(url.lastIndexOf("/") + 1);
     }
 }
