@@ -45,7 +45,7 @@ public class PartnerOnboardingController {
     @PostMapping("/agreement")
     public ResponseEntity<Map<String, String>> saveAgreement(
             Authentication authentication,
-            @Valid @RequestBody AgreementDto dto) {
+            @Valid @ModelAttribute AgreementDto dto) {
         Long userId = Long.parseLong(authentication.getName());
         partnerOnboardingService.saveAgreement(userId, dto);
 
@@ -61,4 +61,3 @@ public class PartnerOnboardingController {
         return ResponseEntity.ok(status);
     }
 }
-

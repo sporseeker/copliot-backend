@@ -97,10 +97,15 @@ public class PartnerOnboardingService {
         partner.setAgreementAccepted(dto.getAgreementAccepted());
         partner.setSignedAt(LocalDateTime.now());
 
-        // Save signature as file if provided
-        if (dto.getSignatureData() != null && !dto.getSignatureData().isEmpty()) {
-            // In a real implementation, you would convert base64 to file and upload
-            partner.setSignatureFile(dto.getSignatureData());
+        // Upload signature file to S3 if provided
+        if (dto.getSignatureFile() != null && !dto.getSignatureFile().isEmpty()) {
+            FileUploadResponseDto uploadResponse = s3FileService.uploadFile(
+                    dto.getSignatureFile(),
+                    FileUpload.FileType.IMAGE,
+                    FileUpload.FilePurpose.AGREEMENT_SIGNATURE,
+                    userId
+            );
+            partner.setSignatureFile(uploadResponse.getUrl());
         }
 
         partner.setOnboardingStep(Partner.OnboardingStep.COMPLETE);
@@ -130,4 +135,3 @@ public class PartnerOnboardingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Partner profile not found"));
     }
 }
-

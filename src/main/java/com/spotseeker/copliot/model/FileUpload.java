@@ -52,7 +52,7 @@ public class FileUpload {
     }
 
     public enum FilePurpose {
-        EVENT_FLYER, COMPANY_REGISTRATION, ORGANIZER_ID, SIGNATURE
+        EVENT_FLYER, COMPANY_REGISTRATION, ORGANIZER_ID, AGREEMENT_SIGNATURE
     }
 
     @PrePersist
@@ -60,4 +60,3 @@ public class FileUpload {
         createdAt = LocalDateTime.now();
     }
 }
-
